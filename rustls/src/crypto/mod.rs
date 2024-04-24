@@ -426,7 +426,7 @@ pub trait ActiveKeyExchange: Send + Sync {
     /// from a `&[u8]`.
     ///
     /// This consumes and so terminates the [`ActiveKeyExchange`].
-    fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error>;
+    fn complete(&self, peer_pub_key: &[u8]) -> Result<SharedSecret, Error>;
 
     /// Completes the key exchange for the given TLS version, given the peer's public key.
     ///

@@ -131,7 +131,7 @@ struct Active {
 }
 
 impl ActiveKeyExchange for Active {
-    fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
+    fn complete(&self, peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
         let ciphertext = match ReceivedCiphertext::new(peer_pub_key) {
             Some(ct) => ct,
             None => {

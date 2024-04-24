@@ -26,6 +26,7 @@ pub struct MessageDeframer {
 
     /// If we're in the middle of joining a handshake payload, this is the metadata.
     joining_hs: Option<HandshakePayloadMeta>,
+    remains: usize,
 }
 
 impl MessageDeframer {
@@ -334,13 +335,36 @@ impl MessageDeframer {
             return Err(io::Error::new(io::ErrorKind::InvalidData, err));
         }
 
-        // Try to do the largest reads possible. Note that if
-        // we get a message with a length field out of range here,
-        // we do a zero length read.  That looks like an EOF to
-        // the next layer up, which is fine.
-        let new_bytes = rd.read(buffer.unfilled())?;
-        buffer.advance(new_bytes);
-        Ok(new_bytes)
+        // Toad, read once a record only.
+        if self.remains != 0 {
+            let n = rd.read(&mut buffer.unfilled_with_max(self.remains))?;
+            buffer.advance(n);
+            if n < self.remains {
+                self.remains -= n;
+            } else {
+                self.remains = 0;
+            }
+            return Ok(n);
+        }
+
+        let mut hdr = [0; 5];
+        let five = rd.read(&mut hdr)?;
+        if five != 5 {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "tls record header too short",
+            ));
+        }
+
+        let len = u16::from_be_bytes(hdr[3..5].try_into().unwrap());
+        buffer.unfilled()[0..5].copy_from_slice(&hdr);
+        buffer.advance(5);
+        let n = rd.read(&mut buffer.unfilled_with_max(usize::from(len)))?;
+        if n < usize::from(len) {
+            self.remains = usize::from(len) - n;
+        }
+        buffer.advance(n);
+        Ok(n + five)
     }
 }
 
@@ -481,6 +505,14 @@ impl DeframerVecBuffer {
 
     fn unfilled(&mut self) -> &mut [u8] {
         &mut self.buf[self.used..]
+    }
+
+    fn unfilled_with_max(&mut self, max: usize) -> &mut [u8] {
+        if max >= self.buf.len() - self.used {
+            &mut self.buf[self.used..]
+        } else {
+            &mut self.buf[self.used..self.used + max]
+        }
     }
 }
 

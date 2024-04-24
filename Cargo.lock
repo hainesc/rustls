@@ -327,9 +327,8 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "aws-lc-fips-sys"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e872633d0107cd8f882b08dd9a6ee0e5bf0511da083778f666e325d597069ae"
+version = "0.12.7"
+source = "git+https://github.com/hainesc/aws-lc-rs#b8208b7abb842f71076b04c776abf7a7aebd3346"
 dependencies = [
  "bindgen",
  "cmake",
@@ -345,11 +344,22 @@ version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f379c4e505c0692333bd90a334baa234990faa06bdabefd3261f765946aa920"
 dependencies = [
- "aws-lc-fips-sys",
- "aws-lc-sys",
+ "aws-lc-sys 0.14.1",
  "mirai-annotations",
  "paste",
  "untrusted 0.7.1",
+ "zeroize",
+]
+
+[[package]]
+name = "aws-lc-rs"
+version = "1.7.0"
+source = "git+https://github.com/hainesc/aws-lc-rs#b8208b7abb842f71076b04c776abf7a7aebd3346"
+dependencies = [
+ "aws-lc-fips-sys",
+ "aws-lc-sys 0.15.0",
+ "mirai-annotations",
+ "paste",
  "zeroize",
 ]
 
@@ -360,6 +370,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68aa3d613f42dbf301dbbcaf3dc260805fd33ffd95f6d290ad7231a9e5d877a7"
 dependencies = [
  "bindgen",
+ "cmake",
+ "dunce",
+ "fs_extra",
+ "libc",
+ "paste",
+]
+
+[[package]]
+name = "aws-lc-sys"
+version = "0.15.0"
+source = "git+https://github.com/hainesc/aws-lc-rs#b8208b7abb842f71076b04c776abf7a7aebd3346"
+dependencies = [
+ "bindgen",
+ "cc",
  "cmake",
  "dunce",
  "fs_extra",
@@ -495,6 +519,9 @@ name = "cc"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f9fa1897e4325be0d68d48df6aa1a71ac2ed4d27723887e7754192705350730"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "cexpr"
@@ -2011,7 +2038,7 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54077e1872c46788540de1ea3d7f4ccb1983d12f9aa909b234468676c1a36779"
 dependencies = [
- "aws-lc-rs",
+ "aws-lc-rs 1.6.4",
  "pem",
  "ring",
  "rustls-pki-types",
@@ -2177,7 +2204,7 @@ dependencies = [
 name = "rustls"
 version = "0.23.5"
 dependencies = [
- "aws-lc-rs",
+ "aws-lc-rs 1.7.0",
  "base64 0.22.0",
  "bencher",
  "env_logger",
@@ -2287,7 +2314,7 @@ checksum = "ecd36cc4259e3e4514335c4a138c6b43171a8d61d8f5c9348f9fc7529416f247"
 name = "rustls-post-quantum"
 version = "0.1.0"
 dependencies = [
- "aws-lc-rs",
+ "aws-lc-rs 1.6.4",
  "env_logger",
  "rustls 0.23.5",
  "webpki-roots 0.26.1",
@@ -2338,7 +2365,7 @@ version = "0.102.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faaa0a62740bedb9b2ef5afa303da42764c012f743917351dc9a237ea1663610"
 dependencies = [
- "aws-lc-rs",
+ "aws-lc-rs 1.6.4",
  "ring",
  "rustls-pki-types",
  "untrusted 0.9.0",

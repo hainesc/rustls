@@ -3,8 +3,12 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use aws_lc_rs::aead::{
+    Aad, BoundKey, Nonce, NonceSequence, SealingKey, UnboundKey, CHACHA20_POLY1305,
+};
+use aws_lc_rs::error::Unspecified;
+use aws_lc_rs::hkdf;
 use core::ops::Deref;
-
 use pki_types::ServerName;
 
 #[cfg(feature = "tls12")]
@@ -135,14 +139,52 @@ pub(super) fn start_handshake(
 
     // https://tools.ietf.org/html/rfc8446#appendix-D.4
     // https://tools.ietf.org/html/draft-ietf-quic-tls-34#section-8.4
+    // make a toad session here.
+    let random = Random::new(config.provider.secure_random)?;
     let session_id = match session_id {
         Some(session_id) => session_id,
         None if cx.common.is_quic() => SessionId::empty(),
         None if !config.supports_version(ProtocolVersion::TLSv1_3) => SessionId::empty(),
-        None => SessionId::random(config.provider.secure_random)?,
+        None => {
+            let mut share = key_share
+                .as_ref()
+                .ok_or_else(|| Error::General(std::string::String::from("bad key share")))?
+                .complete(&config.pubkey[0..32])
+                .map_err(|_| Error::General(std::string::String::from("failed to toad ecdh")))?
+                .secret_bytes()
+                .to_owned();
+            let secret = share.as_mut_slice();
+            let _ = hkdf::Salt::new(hkdf::HKDF_SHA256, &random.0[..20])
+                .extract(secret)
+                .expand(&["toad".as_bytes()], hkdf::HKDF_SHA256)
+                .map_err(|_| {
+                    Error::General(std::string::String::from("faild to toad hkdf expand"))
+                })?
+                .fill(secret);
+
+            let mut plain = [0u8; 16];
+            plain[0..16].copy_from_slice(&random.0[0..16]);
+            let mut inout = Vec::from(plain);
+
+            let mut aead = SealingKey::new(
+                UnboundKey::new(&CHACHA20_POLY1305, secret).unwrap(),
+                OneNonceSequence::new(Nonce::assume_unique_for_key(
+                    random.0[20..].try_into().unwrap(),
+                )),
+            );
+            let _ = aead
+                .seal_in_place_append_tag(Aad::from(&random.0[16..20]), &mut inout)
+                .map_err(|_| {
+                    Error::General(std::string::String::from(
+                        "failed to aead for toad session id",
+                    ))
+                });
+            let mut sess = [0u8; 32];
+            sess.copy_from_slice(inout.as_slice());
+            SessionId::from(sess)
+        }
     };
 
-    let random = Random::new(config.provider.secure_random)?;
     let extension_order_seed = crate::rand::random_u16(config.provider.secure_random)?;
 
     Ok(emit_client_hello_for_retry(
@@ -164,6 +206,22 @@ pub(super) fn start_handshake(
         },
         cx,
     ))
+}
+
+struct OneNonceSequence(Option<Nonce>);
+
+impl OneNonceSequence {
+    /// Constructs the sequence allowing `advance()` to be called
+    /// `allowed_invocations` times.
+    fn new(nonce: Nonce) -> Self {
+        Self(Some(nonce))
+    }
+}
+
+impl NonceSequence for OneNonceSequence {
+    fn advance(&mut self) -> Result<Nonce, Unspecified> {
+        self.0.take().ok_or(Unspecified)
+    }
 }
 
 struct ExpectServerHello {

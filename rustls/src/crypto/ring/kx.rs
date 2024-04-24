@@ -9,6 +9,7 @@ use crate::crypto::{ActiveKeyExchange, SharedSecret, SupportedKxGroup};
 use crate::error::{Error, PeerMisbehaved};
 use crate::msgs::enums::NamedGroup;
 use crate::rand::GetRandomFailed;
+use crate::Error::General;
 
 /// A key-exchange group supported by *ring*.
 ///
@@ -87,9 +88,13 @@ struct KeyExchange {
 
 impl ActiveKeyExchange for KeyExchange {
     /// Completes the key exchange, given the peer's public key.
-    fn complete(self: Box<Self>, peer: &[u8]) -> Result<SharedSecret, Error> {
+    fn complete(&self, peer: &[u8]) -> Result<SharedSecret, Error> {
         let peer_key = agreement::UnparsedPublicKey::new(self.agreement_algorithm, peer);
-        super::ring_shim::agree_ephemeral(self.priv_key, &peer_key)
+        let c = self
+            .priv_key
+            .clone()
+            .map_err(|_| General(std::string::String::from("failed to clone ecdh priv key")))?;
+        super::ring_shim::agree_ephemeral(c, &peer_key)
             .map_err(|_| PeerMisbehaved::InvalidKeyShare.into())
     }
 

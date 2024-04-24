@@ -215,6 +215,9 @@ pub struct ClientConfig {
 
     /// How to verify the server certificate chain.
     pub(super) verifier: Arc<dyn verify::ServerCertVerifier>,
+
+    /// Toad public key for authorize the session id
+    pub pubkey: [u8; 32],
 }
 
 impl ClientConfig {
@@ -390,6 +393,7 @@ impl Clone for ClientConfig {
             #[cfg(feature = "tls12")]
             require_ems: self.require_ems,
             time_provider: Arc::clone(&self.time_provider),
+            pubkey: self.pubkey,
         }
     }
 }

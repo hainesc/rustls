@@ -164,6 +164,16 @@ impl Codec<'_> for SessionId {
     }
 }
 
+impl From<[u8; 32]> for SessionId {
+    #[inline]
+    fn from(bytes: [u8; 32]) -> Self {
+        Self {
+            data: bytes,
+            len: 32,
+        }
+    }
+}
+
 impl SessionId {
     pub fn random(secure_random: &dyn SecureRandom) -> Result<Self, rand::GetRandomFailed> {
         let mut data = [0u8; 32];

@@ -164,6 +164,8 @@ impl ConfigBuilder<ClientConfig, WantsClientCert> {
             #[cfg(feature = "tls12")]
             require_ems: cfg!(feature = "fips"),
             time_provider: self.state.time_provider,
+            // TODO: make a fake pubkey here.
+            pubkey: [0_u8; 32],
         }
     }
 }

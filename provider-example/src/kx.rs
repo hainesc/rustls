@@ -9,10 +9,7 @@ pub struct KeyExchange {
 }
 
 impl crypto::ActiveKeyExchange for KeyExchange {
-    fn complete(
-        self: Box<KeyExchange>,
-        peer: &[u8],
-    ) -> Result<crypto::SharedSecret, rustls::Error> {
+    fn complete(&self, peer: &[u8]) -> Result<crypto::SharedSecret, rustls::Error> {
         let peer_array: [u8; 32] = peer
             .try_into()
             .map_err(|_| rustls::Error::from(rustls::PeerMisbehaved::InvalidKeyShare))?;
