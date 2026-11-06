@@ -94,6 +94,16 @@ impl SessionId {
     }
 }
 
+impl From<[u8; 32]> for SessionId {
+    #[inline]
+    fn from(bytes: [u8; 32]) -> Self {
+        Self {
+            data: bytes,
+            len: 32,
+        }
+    }
+}
+
 impl Codec<'_> for SessionId {
     fn encode(&self, bytes: &mut Vec<u8>) {
         debug_assert!(self.len <= 32);

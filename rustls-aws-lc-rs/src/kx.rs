@@ -2,7 +2,6 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::{agreement, kem};
 use pki_types::FipsStatus;
 use rustls::crypto::GetRandomFailed;
@@ -204,8 +203,7 @@ struct KxGroup {
 
 impl SupportedKxGroup for KxGroup {
     fn start(&self) -> Result<StartedKeyExchange, Error> {
-        let rng = SystemRandom::new();
-        let priv_key = agreement::EphemeralPrivateKey::generate(self.agreement_algorithm, &rng)
+        let priv_key = agreement::PrivateKey::generate(self.agreement_algorithm)
             .map_err(|_| GetRandomFailed)?;
 
         let pub_key = priv_key
@@ -282,7 +280,7 @@ fn uncompressed_point(point: &[u8]) -> bool {
 struct KeyExchange {
     name: NamedGroup,
     agreement_algorithm: &'static agreement::Algorithm,
-    priv_key: agreement::EphemeralPrivateKey,
+    priv_key: agreement::PrivateKey,
     pub_key: agreement::PublicKey,
     pub_key_validator: fn(&[u8]) -> bool,
 }
@@ -290,12 +288,22 @@ struct KeyExchange {
 impl ActiveKeyExchange for KeyExchange {
     /// Completes the key exchange, given the peer's public key.
     fn complete(self: Box<Self>, peer: &[u8]) -> Result<SharedSecret, Error> {
+        self.agree(peer)
+    }
+
+    /// Performs key agreement without consuming self.
+    fn agree(&self, peer: &[u8]) -> Result<SharedSecret, Error> {
         if !(self.pub_key_validator)(peer) {
             return Err(PeerMisbehaved::InvalidKeyShare.into());
         }
         let peer_key = agreement::UnparsedPublicKey::new(self.agreement_algorithm, peer);
-        super::ring_shim::agree_ephemeral(self.priv_key, &peer_key)
-            .map_err(|_| PeerMisbehaved::InvalidKeyShare.into())
+        agreement::agree(
+            &self.priv_key,
+            &peer_key,
+            PeerMisbehaved::InvalidKeyShare,
+            |key_material| Ok(SharedSecret::from(key_material)),
+        )
+        .map_err(Into::into)
     }
 
     /// Return the group being used.

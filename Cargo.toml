@@ -28,6 +28,8 @@ members = [
   "rustls-fuzzing-provider",
   # utility code
   "rustls-util",
+  # TLS fingerprinting profiles
+  "rustls-fingerprint",
 ]
 
 ## Deliberately not included in `members`:
@@ -77,6 +79,7 @@ regex = "1"
 ring = "0.17"
 rustc-hash = "2"
 rustls-fuzzing-provider = { path = "rustls-fuzzing-provider/" }
+rustls-fingerprint = { path = "rustls-fingerprint", default-features = false, features = ["alloc", "aws-lc-sys"] }
 rustls-graviola = { version = "0.4" }
 rustls-test = { path = "rustls-test/", default-features = false }
 serde = { version = "1", features = ["derive"] }

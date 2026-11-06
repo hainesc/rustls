@@ -1,0 +1,19 @@
+[package]
+name = "rustls-fingerprint"
+version = "0.1.0"
+edition = "2021"
+description = "TLS ClientHello fingerprinting profiles and utilities (Chrome, GREASE, etc.)"
+license = "Apache-2.0 OR MIT"
+
+[features]
+default = ["aws-lc-sys", "std"]
+aws-lc-sys = ["aws-lc-rs/aws-lc-sys"]
+std = ["alloc"]
+alloc = []
+
+[dependencies]
+aws-lc-rs = { workspace = true, default-features = false }
+
+[lints]
+workspace = true
+

@@ -807,6 +807,7 @@ fn emit_client_hello_for_retry(
     // Extensions MAY be randomized
     // but they also need to keep the same order as the previous ClientHello
     exts.order_seed = input.hello.extension_order_seed;
+    exts.fingerprint = config.fingerprint;
 
     let mut cipher_suites: Vec<_> = config
         .provider()
@@ -817,15 +818,55 @@ fn emit_client_hello_for_retry(
         })
         .collect();
 
+    if let Some(profile) = config.fingerprint.as_ref().and_then(|f| f.profile()) {
+        if profile.use_grease {
+            let grease_cs = crate::fingerprint::grease::select_grease(input.hello.extension_order_seed);
+            cipher_suites.insert(0, CipherSuite(grease_cs));
+        }
+    }
+
     if supported_versions.tls12 {
         // We don't do renegotiation at all, in fact.
         cipher_suites.push(CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV);
     }
 
+    let mut session_id = input.session_id;
+    if let (Some(reality), Some(key_share)) = (&config.reality, &key_share) {
+        let shared_secret = key_share
+            .share
+            .agree(&reality.public_key)
+            .map_err(|e| Error::General(alloc::format!("failed to compute REALITY shared secret: {e}")))?;
+
+        let secret_bytes: [u8; 32] = shared_secret
+            .secret_bytes()
+            .try_into()
+            .map_err(|_| Error::General(alloc::string::String::from("invalid REALITY shared secret length")))?;
+
+        let now_secs = config
+            .current_time()
+            .map(|t| t.as_secs())
+            .unwrap_or(0) as u32;
+
+        let aad = &input.random.0[16..20];
+
+        let reality_session_id = crate::fingerprint::compute_reality_session_id(
+            &secret_bytes,
+            &input.random.0,
+            &reality.short_id,
+            now_secs,
+            reality.version,
+            aad,
+        )
+        .map_err(|_| Error::General(alloc::string::String::from("failed to compute REALITY session id")))?;
+
+        session_id = SessionId::from(reality_session_id);
+        input.session_id = session_id;
+    }
+
     let mut chp_payload = ClientHelloPayload {
         client_version: ProtocolVersion::TLSv1_2,
         random: input.random,
-        session_id: input.session_id,
+        session_id,
         cipher_suites,
         compression_methods: vec![Compression::Null],
         extensions: exts,

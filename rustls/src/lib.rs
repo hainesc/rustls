@@ -414,10 +414,18 @@ pub use crate::webpki::RootCertStore;
 /// Items for use in a client.
 pub mod client;
 pub use client::{ClientConfig, ClientSide};
+/// Convenience alias for a client TLS connection over TCP.
+pub type ClientConnection = Connection<ClientSide, Tcp>;
+
+/// ClientHello fingerprinting profiles and utilities.
+pub use rustls_fingerprint as fingerprint;
+pub use crypto::SignatureScheme;
 
 /// Items for use in a server.
 pub mod server;
 pub use server::{ServerConfig, ServerSide};
+/// Convenience alias for a server TLS connection over TCP.
+pub type ServerConnection = Connection<ServerSide, Tcp>;
 
 /// All defined protocol versions appear in this module.
 ///

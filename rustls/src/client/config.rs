@@ -193,6 +193,12 @@ pub struct ClientConfig {
 
     /// How to offer Encrypted Client Hello (ECH). The default is to not offer ECH.
     pub(super) ech_mode: Option<EchMode>,
+
+    /// Optional ClientHello fingerprint to mimic (e.g. Google Chrome).
+    pub fingerprint: Option<crate::fingerprint::ClientFingerprint>,
+
+    /// Optional REALITY anti-probing protocol configuration.
+    pub reality: Option<crate::client::reality::RealityConfig>,
 }
 
 impl ClientConfig {
@@ -793,6 +799,8 @@ impl ConfigBuilder<ClientConfig, WantsClientCert> {
             cert_compressors: compress::default_cert_compressors().to_vec(),
             cert_compression_cache: Arc::new(compress::CompressionCache::default()),
             ech_mode: self.state.client_ech_mode,
+            fingerprint: None,
+            reality: None,
         })
     }
 }

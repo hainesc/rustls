@@ -30,6 +30,7 @@ webpki = { workspace = true, optional = true }
 pki-types = { workspace = true }
 zeroize = { workspace = true }
 zlib-rs = { workspace = true, optional = true }
+rustls-fingerprint = { workspace = true }
 
 [dev-dependencies]
 bencher = { workspace = true }

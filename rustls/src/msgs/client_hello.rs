@@ -246,6 +246,9 @@ extension_struct! {
 
         /// Extensions that must appear contiguously.
         pub(crate) contiguous_extensions: Vec<ExtensionType>,
+
+        /// Client fingerprint profile.
+        pub(crate) fingerprint: Option<crate::fingerprint::ClientFingerprint>,
     }
 }
 
@@ -277,6 +280,7 @@ impl ClientExtensions<'_> {
             encrypted_client_hello_outer,
             order_seed,
             contiguous_extensions,
+            fingerprint,
         } = self;
         ClientExtensions {
             server_name: server_name.map(|x| x.into_owned()),
@@ -308,12 +312,17 @@ impl ClientExtensions<'_> {
             encrypted_client_hello_outer,
             order_seed,
             contiguous_extensions,
+            fingerprint,
         }
     }
 
     pub(crate) fn used_extensions_in_encoding_order(&self) -> Vec<ExtensionType> {
         let mut exts = self.order_insensitive_extensions_in_random_order();
         exts.extend(&self.contiguous_extensions);
+
+        if let Some(profile) = self.fingerprint.as_ref().and_then(|f| f.profile()) {
+            profile.sort_extensions(&mut exts, |ext| u16::from(*ext));
+        }
 
         if self
             .encrypted_client_hello_outer

@@ -128,6 +128,11 @@ pub const DEFAULT_TLS12_PROVIDER: CryptoProvider = CryptoProvider {
 /// `KeyProvider` impl for aws-lc-rs
 pub static DEFAULT_KEY_PROVIDER: &dyn KeyProvider = &AwsLcRs;
 
+/// Returns the default `CryptoProvider` backed by aws-lc-rs.
+pub fn default_provider() -> CryptoProvider {
+    DEFAULT_PROVIDER
+}
+
 /// `SecureRandom` impl for aws-lc-rs
 pub static DEFAULT_SECURE_RANDOM: &dyn SecureRandom = &AwsLcRs;
 
@@ -246,6 +251,7 @@ mod ring_shim {
     use aws_lc_rs::agreement::{self, EphemeralPrivateKey, UnparsedPublicKey};
     use rustls::crypto::kx::SharedSecret;
 
+    #[allow(dead_code)]
     pub(super) fn agree_ephemeral(
         priv_key: EphemeralPrivateKey,
         peer_key: &UnparsedPublicKey<&[u8]>,

@@ -33,6 +33,10 @@ pub use config::{
     CredentialRequest, Resumption, TicketRequest, Tls12Resumption, WantsClientCert,
 };
 
+/// REALITY anti-probing protocol types.
+pub mod reality;
+pub use reality::RealityConfig;
+
 mod connection;
 pub use connection::{ClientConnectionBuilder, ClientHandshake, ClientSide, WriteEarlyData};
 

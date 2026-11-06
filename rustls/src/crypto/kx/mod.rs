@@ -132,6 +132,10 @@ impl ActiveKeyExchange for ActiveHybrid {
     fn group(&self) -> NamedGroup {
         self.name
     }
+
+    fn agree(&self, peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
+        self.classical.agree(peer_pub_key)
+    }
 }
 
 impl HybridKeyExchange for ActiveHybrid {
@@ -361,6 +365,15 @@ pub trait ActiveKeyExchange: Send + Sync {
     ///
     /// This consumes and so terminates the [`ActiveKeyExchange`].
     fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error>;
+
+    /// Performs key agreement against a peer's public key without consuming `self`.
+    ///
+    /// This is used for covert authentication channels (such as REALITY) where
+    /// the client's ephemeral private key must be used twice: once to produce the
+    /// covert Session ID token, and later to complete the real TLS 1.3 handshake.
+    fn agree(&self, _peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
+        Err(Error::General("non-consuming key agreement is not supported by this provider".into()))
+    }
 
     /// Completes the key exchange for the given TLS version, given the peer's public key.
     ///
