@@ -27,7 +27,7 @@ use crate::hash_hs::HandshakeHashBuffer;
 use crate::kernel::KernelState;
 use crate::msgs::{
     CertificateStatusRequest, ClientExtensions, ClientExtensionsInput, ClientHelloPayload,
-    ClientSessionTicket, ClientTicketRequest, Compression, EncryptedClientHello, ExtensionType,
+    ClientSessionTicket, ClientTicketRequest, Codec, Compression, EncryptedClientHello, ExtensionType,
     HandshakeMessagePayload, HandshakePayload, HelloRetryRequest, KeyShareEntry, Message,
     MessagePayload, PskKeyExchangeModes, Random, ServerHelloPayload, ServerNamePayload, SessionId,
     SupportedEcPointFormats, SupportedProtocolVersions, TransportParameters,
@@ -831,36 +831,8 @@ fn emit_client_hello_for_retry(
     }
 
     let mut session_id = input.session_id;
-    if let (Some(reality), Some(key_share)) = (&config.reality, &key_share) {
-        let shared_secret = key_share
-            .share
-            .agree(&reality.public_key)
-            .map_err(|e| Error::General(alloc::format!("failed to compute REALITY shared secret: {e}")))?;
-
-        let secret_bytes: [u8; 32] = shared_secret
-            .secret_bytes()
-            .try_into()
-            .map_err(|_| Error::General(alloc::string::String::from("invalid REALITY shared secret length")))?;
-
-        let now_secs = config
-            .current_time()
-            .map(|t| t.as_secs())
-            .unwrap_or(0) as u32;
-
-        let aad = &input.random.0[16..20];
-
-        let reality_session_id = crate::fingerprint::compute_reality_session_id(
-            &secret_bytes,
-            &input.random.0,
-            &reality.short_id,
-            now_secs,
-            reality.version,
-            aad,
-        )
-        .map_err(|_| Error::General(alloc::string::String::from("failed to compute REALITY session id")))?;
-
-        session_id = SessionId::from(reality_session_id);
-        input.session_id = session_id;
+    if config.reality.is_some() {
+        session_id = SessionId::from([0u8; 32]);
     }
 
     let mut chp_payload = ClientHelloPayload {
@@ -936,6 +908,44 @@ fn emit_client_hello_for_retry(
 
     let mut chp = HandshakeMessagePayload(HandshakePayload::ClientHello(chp_payload));
 
+    if let (Some(reality), Some(key_share)) = (&config.reality, &key_share) {
+        let shared_secret = key_share
+            .share
+            .agree(&reality.public_key)
+            .map_err(|e| Error::General(alloc::format!("failed to compute REALITY shared secret: {e}")))?;
+
+        let secret_bytes: [u8; 32] = shared_secret
+            .secret_bytes()
+            .try_into()
+            .map_err(|_| Error::General(alloc::string::String::from("invalid REALITY shared secret length")))?;
+
+        let now_secs = config
+            .current_time()
+            .map(|t| t.as_secs())
+            .unwrap_or(0) as u32;
+
+        let raw_chp = chp.encoding();
+        if raw_chp.len() < 71 || raw_chp[38] != 32 || &raw_chp[39..71] != &[0u8; 32] {
+            return Err(Error::General(alloc::string::String::from("malformed ClientHello for REALITY")));
+        }
+
+        let reality_session_id = crate::fingerprint::compute_reality_session_id(
+            &secret_bytes,
+            &input.random.0,
+            &reality.short_id,
+            now_secs,
+            reality.version,
+            &raw_chp,
+        )
+        .map_err(|_| Error::General(alloc::string::String::from("failed to compute REALITY session id")))?;
+
+        let session_id = SessionId::from(reality_session_id);
+        if let HandshakePayload::ClientHello(ref mut ch) = chp.0 {
+            ch.session_id = session_id;
+        }
+        input.session_id = session_id;
+    }
+
     let tls13_early_data_key_schedule = match (ech_state.as_mut(), tls13_session) {
         // If we're performing ECH and resuming, then the PSK binder will have been dealt with
         // separately, and we need to take the early_data_key_schedule computed for the inner hello.
@@ -972,6 +982,8 @@ fn emit_client_hello_for_retry(
         },
         payload: MessagePayload::handshake(chp),
     };
+
+
 
     if retryreq.is_some() {
         // send dummy CCS to fool middleboxes prior

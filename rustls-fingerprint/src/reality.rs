@@ -1,7 +1,7 @@
 //! REALITY protocol Session ID computation and verification.
 
 use aws_lc_rs::aead::{
-    Aad, BoundKey, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey, CHACHA20_POLY1305,
+    Aad, BoundKey, Nonce, NonceSequence, OpeningKey, SealingKey, UnboundKey, AES_256_GCM,
 };
 use aws_lc_rs::error::Unspecified;
 use aws_lc_rs::hkdf;
@@ -43,12 +43,12 @@ pub fn compute_reality_session_id(
     plaintext[4..8].copy_from_slice(&timestamp.to_be_bytes());
     plaintext[8..16].copy_from_slice(short_id);
 
-    // 3. Encrypt via ChaCha20-Poly1305
+    // 3. Encrypt via AES-256-GCM
     let nonce_bytes: [u8; 12] = random[20..32].try_into().map_err(|_| Unspecified)?;
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
 
     let mut in_out = plaintext.to_vec();
-    let unbound_key = UnboundKey::new(&CHACHA20_POLY1305, &auth_key)?;
+    let unbound_key = UnboundKey::new(&AES_256_GCM, &auth_key)?;
     let mut sealing_key = SealingKey::new(unbound_key, OneNonceSequence(Some(nonce)));
 
     sealing_key.seal_in_place_append_tag(Aad::from(aad), &mut in_out)?;
@@ -77,7 +77,7 @@ pub fn verify_reality_session_id(
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
 
     let mut in_out = session_id.to_vec();
-    let unbound_key = UnboundKey::new(&CHACHA20_POLY1305, &auth_key)?;
+    let unbound_key = UnboundKey::new(&AES_256_GCM, &auth_key)?;
     let mut opening_key = OpeningKey::new(unbound_key, OneNonceSequence(Some(nonce)));
 
     let decrypted = opening_key.open_in_place(Aad::from(aad), &mut in_out)?;
@@ -222,6 +222,11 @@ pub fn parse_client_hello<'a>(data: &'a [u8]) -> Option<ParsedClientHello<'a>> {
                             key.copy_from_slice(&ext_data[s_pos..s_pos + 32]);
                             client_public_key = Some(key);
                             break;
+                        } else if group == 0x11ec && key_len == 1184 + 32 {
+                            // X25519MLKEM768 hybrid: trailing 32 bytes is X25519 public key
+                            let mut key = [0u8; 32];
+                            key.copy_from_slice(&ext_data[s_pos + 1184..s_pos + 1216]);
+                            client_public_key = Some(key);
                         }
                         s_pos += key_len;
                     }
