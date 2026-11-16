@@ -27,10 +27,10 @@ use crate::hash_hs::HandshakeHashBuffer;
 use crate::kernel::KernelState;
 use crate::msgs::{
     CertificateStatusRequest, ClientExtensions, ClientExtensionsInput, ClientHelloPayload,
-    ClientSessionTicket, ClientTicketRequest, Codec, Compression, EncryptedClientHello, ExtensionType,
-    HandshakeMessagePayload, HandshakePayload, HelloRetryRequest, KeyShareEntry, Message,
-    MessagePayload, PskKeyExchangeModes, Random, ServerHelloPayload, ServerNamePayload, SessionId,
-    SupportedEcPointFormats, SupportedProtocolVersions, TransportParameters,
+    ClientSessionTicket, ClientTicketRequest, Codec, Compression, EncryptedClientHello,
+    ExtensionType, HandshakeMessagePayload, HandshakePayload, HelloRetryRequest, KeyShareEntry,
+    Message, MessagePayload, PskKeyExchangeModes, Random, ServerHelloPayload, ServerNamePayload,
+    SessionId, SupportedEcPointFormats, SupportedProtocolVersions, TransportParameters,
 };
 use crate::sealed::Sealed;
 use crate::suites::{PartiallyExtractedSecrets, Suite, SupportedCipherSuite};
@@ -818,9 +818,14 @@ fn emit_client_hello_for_retry(
         })
         .collect();
 
-    if let Some(profile) = config.fingerprint.as_ref().and_then(|f| f.profile()) {
+    if let Some(profile) = config
+        .fingerprint
+        .as_ref()
+        .and_then(|f| f.profile())
+    {
         if profile.use_grease {
-            let grease_cs = crate::fingerprint::grease::select_grease(input.hello.extension_order_seed);
+            let grease_cs =
+                crate::fingerprint::grease::select_grease(input.hello.extension_order_seed);
             cipher_suites.insert(0, CipherSuite(grease_cs));
         }
     }
@@ -912,12 +917,20 @@ fn emit_client_hello_for_retry(
         let shared_secret = key_share
             .share
             .agree(&reality.public_key)
-            .map_err(|e| Error::General(alloc::format!("failed to compute REALITY shared secret: {e}")))?;
+            .map_err(|e| {
+                Error::General(alloc::format!(
+                    "failed to compute REALITY shared secret: {e}"
+                ))
+            })?;
 
         let secret_bytes: [u8; 32] = shared_secret
             .secret_bytes()
             .try_into()
-            .map_err(|_| Error::General(alloc::string::String::from("invalid REALITY shared secret length")))?;
+            .map_err(|_| {
+                Error::General(alloc::string::String::from(
+                    "invalid REALITY shared secret length",
+                ))
+            })?;
 
         let now_secs = config
             .current_time()
@@ -926,7 +939,9 @@ fn emit_client_hello_for_retry(
 
         let raw_chp = chp.encoding();
         if raw_chp.len() < 71 || raw_chp[38] != 32 || &raw_chp[39..71] != &[0u8; 32] {
-            return Err(Error::General(alloc::string::String::from("malformed ClientHello for REALITY")));
+            return Err(Error::General(alloc::string::String::from(
+                "malformed ClientHello for REALITY",
+            )));
         }
 
         let reality_session_id = crate::fingerprint::compute_reality_session_id(
@@ -937,7 +952,11 @@ fn emit_client_hello_for_retry(
             reality.version,
             &raw_chp,
         )
-        .map_err(|_| Error::General(alloc::string::String::from("failed to compute REALITY session id")))?;
+        .map_err(|_| {
+            Error::General(alloc::string::String::from(
+                "failed to compute REALITY session id",
+            ))
+        })?;
 
         let session_id = SessionId::from(reality_session_id);
         if let HandshakePayload::ClientHello(ref mut ch) = chp.0 {
@@ -982,8 +1001,6 @@ fn emit_client_hello_for_retry(
         },
         payload: MessagePayload::handshake(chp),
     };
-
-
 
     if retryreq.is_some() {
         // send dummy CCS to fool middleboxes prior

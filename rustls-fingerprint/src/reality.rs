@@ -222,11 +222,12 @@ pub fn parse_client_hello<'a>(data: &'a [u8]) -> Option<ParsedClientHello<'a>> {
                             key.copy_from_slice(&ext_data[s_pos..s_pos + 32]);
                             client_public_key = Some(key);
                             break;
-                        } else if group == 0x11ec && key_len == 1184 + 32 {
-                            // X25519MLKEM768 hybrid: trailing 32 bytes is X25519 public key
+                        } else if (group == 0x11ec || group == 0x6399) && key_len == 1184 + 32 {
+                            // X25519MLKEM768 (0x11ec) / X25519Kyber768Draft00 (0x6399): trailing 32 bytes is X25519 public key
                             let mut key = [0u8; 32];
                             key.copy_from_slice(&ext_data[s_pos + 1184..s_pos + 1216]);
                             client_public_key = Some(key);
+                            break;
                         }
                         s_pos += key_len;
                     }
